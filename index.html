@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blot — A simple, native bitmap editor for macOS</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --text: #1d1d1f;
+      --text-secondary: #6e6e73;
+      --accent: #0071e3;
+      --accent-hover: #0077ed;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #000;
+        --text: #f5f5f7;
+        --text-secondary: #86868b;
+      }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    /* Nav */
+    nav {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      padding: 1rem 2rem;
+      background: rgba(250,250,250,0.8);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    @media (prefers-color-scheme: dark) {
+      nav { background: rgba(0,0,0,0.8); }
+    }
+    .logo {
+      font-weight: 600;
+      font-size: 1.25rem;
+      text-decoration: none;
+      color: var(--text);
+    }
+    .nav-links { display: flex; gap: 2rem; }
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 6rem 2rem 4rem;
+    }
+    .app-icon {
+      width: 128px;
+      height: 128px;
+      border-radius: 28px;
+      margin-bottom: 2rem;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+    .app-icon img {
+      width: 100%;
+      height: 100%;
+      border-radius: 28px;
+    }
+    h1 {
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+    }
+    .tagline {
+      font-size: clamp(1.25rem, 3vw, 1.5rem);
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin-bottom: 1rem;
+    }
+    .sub-tagline {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      max-width: 500px;
+      margin-bottom: 2.5rem;
+    }
+    .cta-group { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.875rem 1.75rem;
+      border-radius: 980px;
+      font-size: 1rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--accent-hover); transform: scale(1.02); }
+    .btn-secondary {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+    .btn-secondary:hover { background: var(--accent); color: #fff; }
+    .version {
+      margin-top: 1.5rem;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+    
+    /* Screenshot */
+    .screenshot-section {
+      padding: 4rem 2rem;
+      display: flex;
+      justify-content: center;
+    }
+    .screenshot {
+      max-width: 900px;
+      width: 100%;
+      border-radius: 12px;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.15);
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      aspect-ratio: 16/10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+    }
+    
+    /* Philosophy */
+    .philosophy {
+      padding: 6rem 2rem;
+      max-width: 700px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .philosophy h2 {
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+    }
+    .philosophy p {
+      color: var(--text-secondary);
+      font-size: 1.0625rem;
+      margin-bottom: 1rem;
+    }
+    
+    /* Tools */
+    .tools {
+      padding: 6rem 2rem;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .tools h2 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+    .tools-subtitle {
+      text-align: center;
+      color: var(--text-secondary);
+      margin-bottom: 3rem;
+    }
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1.5rem;
+    }
+    .tool {
+      text-align: center;
+      padding: 1.25rem 0.75rem;
+      border-radius: 12px;
+      background: rgba(128,128,128,0.05);
+    }
+    .tool-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .tool-name { font-size: 0.875rem; font-weight: 500; }
+    .tool-shortcut {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-family: "SF Mono", Menlo, monospace;
+      margin-top: 0.25rem;
+    }
+    
+    /* Features */
+    .features {
+      padding: 6rem 2rem;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .features h2 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 3rem;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 3rem;
+    }
+    .feature { text-align: center; }
+    .feature-icon { font-size: 2rem; margin-bottom: 1rem; }
+    .feature h3 { font-size: 1.125rem; margin-bottom: 0.5rem; }
+    .feature p { color: var(--text-secondary); font-size: 0.9375rem; }
+    
+    /* File Formats */
+    .formats {
+      padding: 4rem 2rem;
+      max-width: 700px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .formats h2 {
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .format-row {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .format-group h3 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+    .format-list {
+      font-size: 0.875rem;
+      font-family: "SF Mono", Menlo, monospace;
+    }
+    
+    /* Requirements */
+    .requirements {
+      padding: 4rem 2rem;
+      text-align: center;
+      border-top: 1px solid rgba(128,128,128,0.2);
+    }
+    .requirements h2 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .requirements p {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+    }
+    .install-note {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      max-width: 500px;
+      margin: 1.5rem auto 0;
+      padding: 1rem;
+      background: rgba(128,128,128,0.05);
+      border-radius: 8px;
+    }
+    
+    /* Footer */
+    footer {
+      padding: 3rem 2rem;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.8125rem;
+    }
+    footer a {
+      color: var(--text-secondary);
+      text-decoration: none;
+    }
+    footer a:hover { text-decoration: underline; }
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="#" class="logo">Blot</a>
+    <div class="nav-links">
+      <a href="#tools">Tools</a>
+      <a href="#features">Features</a>
+      <a href="https://github.com/suobset/blot">GitHub</a>
+    </div>
+  </nav>
+  
+  <section class="hero">
+    <div class="app-icon">
+      <img src="./bloticon.png" alt="Blot app icon">
+    </div>
+    <h1>Blot</h1>
+    <p class="tagline">A simple, native bitmap editor for macOS.</p>
+    <p class="sub-tagline">No Electron. No subscription. No 500MB runtime for a paint program. Just pixels.</p>
+    <div class="cta-group">
+      <a href="https://github.com/suobset/blot/releases" class="btn btn-primary">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        Download Free
+      </a>
+      <a href="https://github.com/suobset/blot" class="btn btn-secondary">View Source</a>
+    </div>
+    <p class="version">v1.0.0 · ~2MB · Universal Binary</p>
+  </section>
+  
+  <section class="screenshot-section">
+    <div class="screenshot">Screenshot: blotlaptop.png</div>
+  </section>
+  
+  <section class="philosophy">
+    <h2>The tool that should exist.</h2>
+    <p>macOS doesn't ship with a basic paint program. If you want to draw a quick diagram, edit a screenshot, or put a red circle around something — your options are an Electron app, a subscription, or overkill.</p>
+    <p>Blot is the paint program I wanted. Swift, SwiftUI, and AppKit. Zero dependencies. Opens instantly. Does exactly what you'd expect.</p>
+  </section>
+  
+  <section class="tools" id="tools">
+    <h2>16 Tools</h2>
+    <p class="tools-subtitle">Everything a paint program needs. Nothing it doesn't.</p>
+    <div class="tools-grid">
+      <div class="tool">
+        <div class="tool-icon">✂️</div>
+        <div class="tool-name">Free-Form Select</div>
+        <div class="tool-shortcut">S</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">⬜</div>
+        <div class="tool-name">Rectangle Select</div>
+        <div class="tool-shortcut">⇧S</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">🧽</div>
+        <div class="tool-name">Eraser</div>
+        <div class="tool-shortcut">E</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">🪣</div>
+        <div class="tool-name">Fill</div>
+        <div class="tool-shortcut">G</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">💧</div>
+        <div class="tool-name">Color Picker</div>
+        <div class="tool-shortcut">I</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">🔍</div>
+        <div class="tool-name">Magnifier</div>
+        <div class="tool-shortcut">Z</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">✏️</div>
+        <div class="tool-name">Pencil</div>
+        <div class="tool-shortcut">P</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">🖌️</div>
+        <div class="tool-name">Brush</div>
+        <div class="tool-shortcut">B</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">🎨</div>
+        <div class="tool-name">Airbrush</div>
+        <div class="tool-shortcut">A</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">T</div>
+        <div class="tool-name">Text</div>
+        <div class="tool-shortcut">T</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">📏</div>
+        <div class="tool-name">Line</div>
+        <div class="tool-shortcut">L</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">〰️</div>
+        <div class="tool-name">Curve</div>
+        <div class="tool-shortcut">C</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">▢</div>
+        <div class="tool-name">Rectangle</div>
+        <div class="tool-shortcut">R</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">⬡</div>
+        <div class="tool-name">Polygon</div>
+        <div class="tool-shortcut">Y</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">⭕</div>
+        <div class="tool-name">Ellipse</div>
+        <div class="tool-shortcut">O</div>
+      </div>
+      <div class="tool">
+        <div class="tool-icon">▢</div>
+        <div class="tool-name">Rounded Rect</div>
+        <div class="tool-shortcut">⇧R</div>
+      </div>
+    </div>
+  </section>
+  
+  <section class="features" id="features">
+    <h2>Built for the Mac</h2>
+    <div class="features-grid">
+      <div class="feature">
+        <div class="feature-icon">🪟</div>
+        <h3>Floating Palettes</h3>
+        <p>Tool palette, color palette, and navigator. Arrange them however you want. Hide them when you need to focus.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⌨️</div>
+        <h3>Keyboard Shortcuts</h3>
+        <p>Every tool has a shortcut. Adjust brush size with [ and ]. Show/hide palettes with ⌘1, ⌘2, ⌘3.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🎨</div>
+        <h3>28-Color Palette</h3>
+        <p>Quick access palette plus full color picker. Foreground and background colors, just like you'd expect.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📐</div>
+        <h3>Shape Styles</h3>
+        <p>Outline only, filled with outline, or filled without outline. Works with all shape tools.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🌙</div>
+        <h3>Dark Mode</h3>
+        <p>Native dark mode support. Follows your system preference automatically.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🍎</div>
+        <h3>Universal Binary</h3>
+        <p>Runs natively on Apple Silicon and Intel. No Rosetta, no compromise.</p>
+      </div>
+    </div>
+  </section>
+  
+  <section class="formats">
+    <h2>File Formats</h2>
+    <div class="format-row">
+      <div class="format-group">
+        <h3>Open</h3>
+        <div class="format-list">PNG · JPEG · BMP · TIFF · GIF · .blot</div>
+      </div>
+      <div class="format-group">
+        <h3>Export</h3>
+        <div class="format-list">PNG · JPEG · TIFF · BMP · GIF · PDF</div>
+      </div>
+    </div>
+  </section>
+  
+  <section class="requirements" id="download">
+    <h2>Requirements</h2>
+    <p>macOS 13.0 (Ventura) or later</p>
+    <p>Apple Silicon or Intel Mac</p>
+    <div class="install-note">
+      <strong>First launch:</strong> Right-click → Open → Click "Open" in the dialog.<br>
+      macOS blocks apps from unidentified developers by default. This only happens once.
+    </div>
+  </section>
+  
+  <footer>
+    <div class="footer-links">
+      <a href="https://github.com/suobset/blot">GitHub</a>
+      <a href="https://github.com/suobset/blot/releases">Releases</a>
+      <a href="https://github.com/suobset/blot/issues">Issues</a>
+    </div>
+    <p>Built by <a href="https://skushagra.com">Kushagra</a>. Open source under MIT.</p>
+  </footer>
+</body>
+</html>
