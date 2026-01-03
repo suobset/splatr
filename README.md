@@ -135,5 +135,3 @@ See [LICENSE](LICENSE) for the full text.
 - [GitHub](https://github.com/suobset)
 
 ---
-
-![Blot App Icon](assets/icon.png)
