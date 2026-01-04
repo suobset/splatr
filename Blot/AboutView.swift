@@ -73,7 +73,7 @@ struct AboutView: View {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.up.right.square")
                     .font(.system(size: 10))
-                Link("Source: github.com/suobset/blot", destination: URL(string: "https://github.com/suobset/blot")!)
+                Link("github.com/suobset/blot", destination: URL(string: "https://github.com/suobset/blot")!)
             }
             .font(.system(size: 11))
             
