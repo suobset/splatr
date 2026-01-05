@@ -15,6 +15,7 @@ final class BlotUITests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launch()
+        app.typeKey("n", modifierFlags: .command)
         sleep(1)
     }
 
@@ -47,11 +48,11 @@ final class BlotUITests: XCTestCase {
     }
 
     @MainActor
-    func testExportAsMenuExists() throws {
+    func testCloseSaveDialogExists() throws {
         // Open the File menu and find "Export As"
         // On macOS UI tests, we can attempt to open the menu via keyboard: Option+F isn't standard, use direct menu query
         // As a fallback, verify that pressing Command+P (PNG export) doesn't crash and the Save panel appears.
-        app.typeKey("p", modifierFlags: [.command])
+        app.typeKey("w", modifierFlags: .command)
         // Expect a Save panel with default name "Untitled.png"
         XCTAssertTrue(app.sheets.firstMatch.waitForExistence(timeout: 3) || app.dialogs.firstMatch.waitForExistence(timeout: 3))
     }
@@ -63,3 +64,4 @@ final class BlotUITests: XCTestCase {
         }
     }
 }
+
