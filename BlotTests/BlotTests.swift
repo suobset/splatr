@@ -34,5 +34,18 @@ final class BlotTests: XCTestCase {
         XCTAssertEqual(doc.canvasSize.width, 800)
         XCTAssertEqual(doc.canvasSize.height, 600)
     }
-
+    
+    func testDocumentHasNoEmptyData() throws {
+        XCTAssertFalse(self.doc.canvasData.isEmpty)
+    }
+    
+    func testColorsMatchWithSimilarColor() throws {
+        let red1 = NSColor(red: 1.0, green: 0, blue: 0, alpha: 1)
+        let red2 = NSColor(red: 0.95, green: 0.02, blue: 0.02, alpha: 1)
+        XCTAssertTrue(red1.isClose(to: red2, tolerance: 0.1))
+    }
+    
+    func testColorsDontMatchWhenDifferent() throws {
+        XCTAssertFalse(NSColor.red.isClose(to: NSColor.blue, tolerance: 0.1))
+    }
 }

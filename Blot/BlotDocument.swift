@@ -15,6 +15,11 @@ extension UTType {
     }
 }
 
+// The BlotDocument File Format stores each canvas as a simple .blot extension
+// We use most Xcode defaults for a Mac Document app, plus this app does not need
+// syncing or anything too fancy.
+// Blot's first 16 bytes are width and height data, followed by the PNG data.
+// If you splice off the first 16 bytes, all that remains is the Image data itself.
 struct BlotDocument: FileDocument {
     var canvasData: Data
     var canvasSize: CGSize
@@ -41,6 +46,7 @@ struct BlotDocument: FileDocument {
         
         if contentType == .blot {
             // .blot is a simple format: 8 bytes for width/height as Float64, then PNG data
+            // We need to ensure that at least the header data exists here
             guard data.count > 16 else { throw CocoaError(.fileReadCorruptFile) }
             
             let width = data.withUnsafeBytes { $0.load(fromByteOffset: 0, as: Float64.self) }
@@ -68,6 +74,10 @@ struct BlotDocument: FileDocument {
         }
     }
     
+    // fileWrapper handles incremental saving and managing of data without wasting too many read/write operations
+    // It returns in FileWrapper data type: Apple's abstraction for representing files or directories in memory,
+    // used primarily by the document architecture (NSDocument/UIDocument).
+    // It lets you work with file contents without immediately writing to disk.
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
         let contentType = configuration.contentType
         
