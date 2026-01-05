@@ -62,13 +62,13 @@
     
     /* Hero */
     .hero {
-      min-height: 100vh;
+      min-height: 70vh;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       text-align: center;
-      padding: 6rem 2rem 4rem;
+      padding: 6rem 2rem 2rem;
     }
     .app-icon {
       width: 128px;
@@ -131,9 +131,10 @@
     
     /* Screenshot */
     .screenshot-section {
-      padding: 4rem 2rem;
+      padding: 0 2rem 4rem;
       display: flex;
       justify-content: center;
+      overflow: hidden;
     }
     .screenshot {
       max-width: 900px;
@@ -141,6 +142,14 @@
       border-radius: 12px;
       box-shadow: 0 40px 80px rgba(0,0,0,0.15);
       overflow: hidden;
+      opacity: 0;
+      transform: translateY(100px);
+      transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), 
+                  transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .screenshot.visible {
+      opacity: 1;
+      transform: translateY(0);
     }
     .screenshot img {
       width: 100%;
@@ -491,5 +500,17 @@
     </div>
     <p>Built by <a href="https://skushagra.com">Kushagra</a>. Open source under MIT.</p>
   </footer>
+
+  <script>
+    const screenshot = document.querySelector('.screenshot');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.1 });
+    observer.observe(screenshot);
+  </script>
 </body>
 </html>
