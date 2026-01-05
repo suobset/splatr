@@ -1,13 +1,13 @@
 //
-//  BlotUITestsLaunchTests.swift
-//  BlotUITests
+//  splatrUITestsLaunchTests.swift
+//  splatrUITests
 //
 //  Created by Kushagra Srivastava on 1/2/26.
 //
 
 import XCTest
 
-final class BlotUITestsLaunchTests: XCTestCase {
+final class splatrUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

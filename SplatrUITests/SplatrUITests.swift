@@ -1,13 +1,13 @@
 //
-//  BlotUITests.swift
-//  BlotUITests
+//  splatrUITests.swift
+//  splatrUITests
 //
 //  Created by Kushagra Srivastava on 1/2/26.
 //
 
 import XCTest
 
-final class BlotUITests: XCTestCase {
+final class splatrUITests: XCTestCase {
 
     var app: XCUIApplication!
 

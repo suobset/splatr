@@ -1,25 +1,25 @@
 //
-//  BlotTests.swift
-//  BlotTests
+//  splatrTests.swift
+//  splatrTests
 //
 //  Created by Kushagra Srivastava on 1/2/26.
 //
 
 import XCTest
-@testable import Blot
+@testable import splatr
 import SwiftUI
 import UniformTypeIdentifiers
 
 #if TESTING || DEBUG
-extension BlotDocument {
+extension splatrDocument {
     /// Test-only initializer to bypass FileDocumentReadConfiguration's inaccessible initializer
     init(testFileWrapper: FileWrapper, contentType: UTType) throws {
-        // If your BlotDocument has an initializer like init(size:) set a default first
+        // If your splatrDocument has an initializer like init(size:) set a default first
         self.init()
         // Mirror the read logic used in init(configuration:)
         if contentType == .png || contentType == .jpeg || contentType == .bmp || contentType == .tiff {
             guard let data = testFileWrapper.regularFileContents else {
-                throw NSError(domain: "BlotTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing file contents"])
+                throw NSError(domain: "splatrTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing file contents"])
             }
             self.canvasData = data
             if let img = NSImage(data: data) {
@@ -27,14 +27,14 @@ extension BlotDocument {
             }
             return
         }
-        if contentType == .blot {
+        if contentType == .splatr {
             guard let data = testFileWrapper.regularFileContents else {
-                throw NSError(domain: "BlotTests", code: 2, userInfo: [NSLocalizedDescriptionKey: "Missing .blot contents"])
+                throw NSError(domain: "splatrTests", code: 2, userInfo: [NSLocalizedDescriptionKey: "Missing .splatr contents"])
             }
             // Expect first 16 bytes as Float64 width/height header
             let headerSize = 16
             guard data.count > headerSize else {
-                throw NSError(domain: "BlotTests", code: 3, userInfo: [NSLocalizedDescriptionKey: "Invalid .blot header"])
+                throw NSError(domain: "splatrTests", code: 3, userInfo: [NSLocalizedDescriptionKey: "Invalid .splatr header"])
             }
             let header = data.prefix(headerSize)
             let body = data.dropFirst(headerSize)
@@ -44,18 +44,18 @@ extension BlotDocument {
             self.canvasData = Data(body)
             return
         }
-        throw NSError(domain: "BlotTests", code: 4, userInfo: [NSLocalizedDescriptionKey: "Unsupported content type: \(contentType)"])
+        throw NSError(domain: "splatrTests", code: 4, userInfo: [NSLocalizedDescriptionKey: "Unsupported content type: \(contentType)"])
     }
 }
 #endif
 
-final class BlotTests: XCTestCase {
+final class splatrTests: XCTestCase {
 
-    var doc: BlotDocument!
+    var doc: splatrDocument!
     
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
-        doc = BlotDocument()
+        doc = splatrDocument()
     }
 
     override func tearDownWithError() throws {
@@ -100,19 +100,19 @@ final class BlotTests: XCTestCase {
         return bitmap.colorAt(x: px, y: py)
     }
 
-    // MARK: - BlotDocument format tests
+    // MARK: - splatrDocument format tests
     func testReadableContentTypesIncludeCommonImages() throws {
-        let readable = Set(BlotDocument.readableContentTypes)
+        let readable = Set(splatrDocument.readableContentTypes)
         XCTAssertTrue(readable.contains(.png))
         XCTAssertTrue(readable.contains(.jpeg))
         XCTAssertTrue(readable.contains(.bmp))
         XCTAssertTrue(readable.contains(.tiff))
-        XCTAssertTrue(readable.contains(.blot))
+        XCTAssertTrue(readable.contains(.splatr))
     }
 
     func testCreateBlankCanvasIsWhite() throws {
         let size = CGSize(width: 8, height: 8)
-        let data = BlotDocument.createBlankCanvas(size: size)
+        let data = splatrDocument.createBlankCanvas(size: size)
         let centerColor = colorFromImageData(data, x: 4, y: 4)
         XCTAssertNotNil(centerColor)
         XCTAssertTrue(centerColor!.isClose(to: .white, tolerance: 0.02))
@@ -135,15 +135,15 @@ final class BlotTests: XCTestCase {
         }
 
         let wrapper = FileWrapper(regularFileWithContents: png)
-        let readDoc = try BlotDocument(testFileWrapper: wrapper, contentType: .png)
+        let readDoc = try splatrDocument(testFileWrapper: wrapper, contentType: .png)
         XCTAssertEqual(Int(readDoc.canvasSize.width), 40)
         XCTAssertEqual(Int(readDoc.canvasSize.height), 30)
     }
 
-    func testCustomBlotFormatHeaderParsing() throws {
-        // Build a .blot file: 16-byte header (Float64 width/height) + PNG data
+    func testCustomsplatrFormatHeaderParsing() throws {
+        // Build a .splatr file: 16-byte header (Float64 width/height) + PNG data
         let size = CGSize(width: 321, height: 123)
-        let doc = BlotDocument(size: size)
+        let doc = splatrDocument(size: size)
         let pngData = doc.canvasData
 
         var header = Data()
@@ -151,10 +151,10 @@ final class BlotTests: XCTestCase {
         var h = Float64(size.height)
         header.append(Data(bytes: &w, count: 8))
         header.append(Data(bytes: &h, count: 8))
-        let blotData = header + pngData
+        let splatrData = header + pngData
 
-        let wrapper = FileWrapper(regularFileWithContents: blotData)
-        let readDoc = try BlotDocument(testFileWrapper: wrapper, contentType: .blot)
+        let wrapper = FileWrapper(regularFileWithContents: splatrData)
+        let readDoc = try splatrDocument(testFileWrapper: wrapper, contentType: .splatr)
 
         XCTAssertEqual(readDoc.canvasSize.width, size.width, accuracy: 0.5)
         XCTAssertEqual(readDoc.canvasSize.height, size.height, accuracy: 0.5)
