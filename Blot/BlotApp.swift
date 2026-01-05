@@ -6,12 +6,42 @@
 //
 
 import SwiftUI
+import WelcomeWindow
 
 @main
 struct BlotApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openWindow) var openWindow
     
+    // MARK: - Welcome Window  Body
     var body: some Scene {
+        WelcomeWindow(
+            // Add two action buttons below the app icon
+            actions : { dismiss in
+                WelcomeButton(
+                    iconName: "paintbrush",
+                    title: "New Canvas",
+                    action: {
+                        NSDocumentController.shared.newDocument(nil)
+                        dismiss()
+                    }
+                )
+                WelcomeButton(
+                    iconName: "doc.on.doc",
+                    title: "Open Existing Canvas/Image",
+                    action: {
+                        NSDocumentController.shared.openDocument(nil)
+                        dismiss()
+                    }
+                )
+            },
+            onDrop: { url, dismiss in
+                    NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, _ in
+                    dismiss()
+                }
+            }
+        )
         DocumentGroup(newDocument: BlotDocument()) { file in
             ContentView(document: file.$document)
                 .frame(minWidth: 900, minHeight: 700)
@@ -206,6 +236,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return false
+    }
+    
+    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
         return false
     }
     

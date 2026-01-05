@@ -1,0 +1,24 @@
+{
+  "originHash" : "dcbc868b334282850202633e1ef612a468c8084715b7ba89c00c11afb9c5de18",
+  "pins" : [
+    {
+      "identity" : "swiftlintplugin",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/lukepistrol/SwiftLintPlugin",
+      "state" : {
+        "revision" : "9bbc46a4cf8275ceb39334f6276b6b215d67d5d5",
+        "version" : "0.62.2"
+      }
+    },
+    {
+      "identity" : "welcomewindow?tab=readme-ov-file",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/CodeEditApp/WelcomeWindow?tab=readme-ov-file",
+      "state" : {
+        "branch" : "main",
+        "revision" : "cef2726ed3bd7b5beb585c9b6829f76d463a224c"
+      }
+    }
+  ],
+  "version" : 3
+}
