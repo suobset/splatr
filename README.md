@@ -115,7 +115,12 @@ So I built one. In a weekend. With vibes.
 - **SwiftUI** — For the UI components that benefit from declarative syntax  
 - **AppKit** — For the parts that need real control (canvas rendering, floating panels)
 - **Core Graphics** — For actual pixel manipulation
-- **No dependencies** — Just Apple frameworks.
+
+## Acknowledgments
+
+Blot uses the following open source projects:
+
+- [WelcomeWindow](https://github.com/CodeEditApp/WelcomeWindow) by CodeEdit — MIT License
 
 ## Contributing
 
