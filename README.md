@@ -1,6 +1,6 @@
-# Blot
+# Splatr
 
-![Blot App Icon](assets/laptop.png)
+![Splatr App Icon](assets/laptop.png)
 
 A bitmap image editor for macOS. Simple. Native. No bloat.
 
@@ -8,7 +8,7 @@ A bitmap image editor for macOS. Simple. Native. No bloat.
 
 ## What is this?
 
-Blot is a straightforward bitmap image editor built entirely with Swift, SwiftUI, and AppKit. No Electron. No web views. No 500MB runtime for a paint program.
+Splatr is a straightforward bitmap image editor built entirely with Swift, SwiftUI, and AppKit. No Electron. No web views. No 500MB runtime for a paint program.
 
 It's the kind of app that should exist on every Mac but doesn't—a simple, fast, native tool for when you just need to draw something, edit a screenshot, or make a quick diagram without launching a subscription-based behemoth.
 
@@ -52,7 +52,7 @@ All shape tools support three styles:
 - Filled without outline
 
 ### File Formats
-**Open:** PNG, JPEG, BMP, TIFF, GIF, and `.blot` (native format)
+**Open:** PNG, JPEG, BMP, TIFF, GIF, and `.splatr` (native format)
 
 **Export:** PNG, JPEG, TIFF, BMP, GIF, PDF
 
@@ -88,13 +88,13 @@ All shape tools support three styles:
 ## Installation
 
 ### Download
-Grab the latest release from the [Releases](https://github.com/suobset/blot/releases) page.
+Grab the latest release from the [Releases](https://github.com/suobset/splatr/releases) page.
 
 ### Build from Source
 ```bash
-git clone https://github.com/suobset/blot.git
-cd blot
-open Blot.xcodeproj
+git clone https://github.com/suobset/splatr.git
+cd splatr
+open Splatr.xcodeproj
 ```
 
 Then hit `⌘R` in Xcode.
@@ -118,7 +118,7 @@ So I built one. In a weekend. With vibes.
 
 ## Acknowledgments
 
-Blot uses the following open source projects:
+Splatr uses the following open source projects:
 
 - [WelcomeWindow](https://github.com/CodeEditApp/WelcomeWindow) by CodeEdit — MIT License
 
