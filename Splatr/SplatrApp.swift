@@ -10,43 +10,12 @@ import SwiftUI
 @main
 struct splatrApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.openWindow) var openWindow
     
     var body: some Scene {
-        WelcomeWindow(
-            actions : { dismiss in
-                WelcomeButton(
-                    iconName: "paintbrush",
-                    title: "New Canvas",
-                    action: {
-                        NSDocumentController.shared.newDocument(nil)
-                        dismiss()
-                    }
-                )
-                WelcomeButton(
-                    iconName: "doc.on.doc",
-                    title: "Open Existing Canvas/Image",
-                    action: {
-                        NSDocumentController.shared.openDocument(nil)
-                        dismiss()
-                    }
-                )
-            },
-            onDrop: { url, dismiss in
-                NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, _ in
-                    dismiss()
-                }
-            }
-        )
+        
         DocumentGroup(newDocument: splatrDocument()) { file in
             ContentView(document: file.$document)
                 .frame(minWidth: 640, minHeight: 480)
-                .onAppear(perform: {
-                    if let url = file.fileURL {
-                        RecentsStore.documentOpened(at: url)
-                    }
-                })
         }
         .defaultSize(width: 950, height: 750)
         .commands {
@@ -273,6 +242,7 @@ extension Notification.Name {
 class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        WelcomeWindowController.shared.show()
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(windowWillClose),
@@ -282,17 +252,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func windowWillClose(_ notification: Notification) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            let documentWindows = NSApp.windows.filter { window in
+        guard let closingWindow = notification.object as? NSWindow else { return }
+        
+        // Ignore if it's the welcome window itself or a panel
+        if closingWindow === WelcomeWindowController.shared.window {
+            return
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // Check if any document windows exist
+            let hasDocumentWindows = NSDocumentController.shared.documents.count > 0
+            let hasVisibleDocuments = NSApp.windows.contains { window in
                 window.isVisible &&
-                !window.className.contains("Panel") &&
-                !window.className.contains("Welcome") &&
-                window.styleMask.contains(.titled) &&
                 window.windowController?.document != nil
             }
             
-            if documentWindows.isEmpty {
-                NSApp.sendAction(Selector(("showWelcomeWindow:")), to: nil, from: nil)
+            if !hasDocumentWindows && !hasVisibleDocuments {
+                WelcomeWindowController.shared.show()
             }
         }
     }
@@ -315,7 +291,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag {
-            NotificationCenter.default.post(name: NSNotification.Name("ShowWelcomeWindow"), object: nil)
+            WelcomeWindowController.shared.show()
         }
         return true
     }
