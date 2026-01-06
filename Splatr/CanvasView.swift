@@ -16,10 +16,12 @@ struct CanvasView: NSViewRepresentable {
     var showResizeHandles: Bool
     var onCanvasResize: (CGSize) -> Void
     var onCanvasUpdate: (NSImage) -> Void
+    @Environment(\.undoManager) var undoManager
     
     func makeNSView(context: Context) -> CanvasNSView {
         let view = CanvasNSView()
         view.delegate = context.coordinator
+        view.canvasUndoManager = undoManager
         view.currentColor = currentColor
         view.brushSize = brushSize
         view.currentTool = currentTool
@@ -30,6 +32,7 @@ struct CanvasView: NSViewRepresentable {
     }
     
     func updateNSView(_ nsView: CanvasNSView, context: Context) {
+        nsView.canvasUndoManager = undoManager
         nsView.currentColor = currentColor
         nsView.brushSize = brushSize
         nsView.currentTool = currentTool
@@ -84,6 +87,7 @@ struct CanvasView: NSViewRepresentable {
 }
 
 class CanvasNSView: NSView {
+    weak var canvasUndoManager: UndoManager?
     weak var delegate: CanvasView.Coordinator?
     
     private var canvasImage: NSImage?
@@ -147,6 +151,32 @@ class CanvasNSView: NSView {
         }
     }
     
+    // MARK: - Undo Manager
+    private func snapshotForUndo(actionName: String) {
+        guard let canvasUndoManager = canvasUndoManager,
+              let currentImage = canvasImage?.copy() as? NSImage else { return }
+        canvasUndoManager.registerUndo(withTarget: self) { target in
+            // Redo snapshot of current state
+            let redoImage = target.canvasImage?.copy() as? NSImage
+                    
+            // Restore old image
+            target.canvasImage = currentImage
+            target.saveToDocument()
+            target.setNeedsDisplay(target.bounds)
+            
+            // Register redo
+            if let redoImage = redoImage {
+                target.undoManager?.registerUndo(withTarget: target) { innerTarget in
+                    innerTarget.canvasImage = redoImage
+                    innerTarget.saveToDocument()
+                    innerTarget.setNeedsDisplay(innerTarget.bounds)
+                }
+                target.undoManager?.setActionName(actionName)
+            }
+        }
+        undoManager?.setActionName(actionName)
+    }
+    
     // MARK: - Image Loading
     
     func loadImage(from data: Data) {
@@ -178,6 +208,9 @@ class CanvasNSView: NSView {
     }
     
     func resizeCanvas(to newSize: CGSize) {
+        // Register undo for resize
+        snapshotForUndo(actionName: "Resize Canvas")
+        
         let oldImage = canvasImage
         let oldSize = canvasSize
         canvasSize = newSize
@@ -654,6 +687,9 @@ class CanvasNSView: NSView {
     private func commitStroke() {
         guard currentPath.count > 0, let image = canvasImage else { return }
         
+        // Undo snapshot BEFORE mutating
+        snapshotForUndo(actionName: currentTool == .eraser ? "Erase" : "Draw")
+        
         let drawColor = currentTool == .eraser ? NSColor.white : currentColor
         let drawSize = getDrawSize()
         
@@ -696,6 +732,7 @@ class CanvasNSView: NSView {
     private func sprayAirbrush() {
         guard isAirbrushActive, let image = canvasImage else { return }
         
+        // Continuous spraying should not register an undo every tick; register on stop.
         let newImage = NSImage(size: canvasSize)
         newImage.lockFocus()
         image.draw(in: NSRect(origin: .zero, size: canvasSize))
@@ -724,6 +761,8 @@ class CanvasNSView: NSView {
     }
     
     private func stopAirbrush() {
+        // Register undo once when finishing the spray action
+        snapshotForUndo(actionName: "Airbrush")
         isAirbrushActive = false
         airbrushTimer?.invalidate()
         airbrushTimer = nil
@@ -737,6 +776,8 @@ class CanvasNSView: NSView {
             resetShapeState()
             return
         }
+        
+        snapshotForUndo(actionName: "Line")
         
         let newImage = NSImage(size: canvasSize)
         newImage.lockFocus()
@@ -761,6 +802,8 @@ class CanvasNSView: NSView {
             resetShapeState()
             return
         }
+        
+        snapshotForUndo(actionName: "Shape")
         
         let newImage = NSImage(size: canvasSize)
         newImage.lockFocus()
@@ -833,6 +876,8 @@ class CanvasNSView: NSView {
             return
         }
         
+        snapshotForUndo(actionName: "Curve")
+        
         let newImage = NSImage(size: canvasSize)
         newImage.lockFocus()
         image.draw(in: NSRect(origin: .zero, size: canvasSize))
@@ -866,6 +911,8 @@ class CanvasNSView: NSView {
             polygonPoints = []
             return
         }
+        
+        snapshotForUndo(actionName: "Polygon")
         
         let newImage = NSImage(size: canvasSize)
         newImage.lockFocus()
@@ -908,8 +955,11 @@ class CanvasNSView: NSView {
         
         // Cut selection from canvas if first move
         if selectionImage != nil && originalSelectionRect == nil {
+            // Snapshot before cutting
+            snapshotForUndo(actionName: "Cut Selection")
             originalSelectionRect = rect
             clearRect(rect)
+            saveToDocument()
         }
     }
     
@@ -954,6 +1004,8 @@ class CanvasNSView: NSView {
             originalSelectionRect = nil
             return
         }
+        
+        snapshotForUndo(actionName: "Move Selection")
         
         let newImage = NSImage(size: canvasSize)
         newImage.lockFocus()
@@ -1013,15 +1065,17 @@ class CanvasNSView: NSView {
         // Don't fill if clicking on same color
         if colorsMatch(targetColor, currentColor) { return }
         
+        // Undo snapshot before mutating
+        snapshotForUndo(actionName: "Fill")
+        
         // Use a simple scanline fill with a visited array (faster than Set)
         var visited = [Bool](repeating: false, count: width * height)
         var stack: [(Int, Int)] = [(startX, startY)]
         
         while !stack.isEmpty {
             let (x, y) = stack.removeLast()
-            let idx = y * width + x
-            
             if x < 0 || x >= width || y < 0 || y >= height { continue }
+            let idx = y * width + x
             if visited[idx] { continue }
             
             guard let pixelColor = bitmap.colorAt(x: x, y: y),
@@ -1096,6 +1150,8 @@ class CanvasNSView: NSView {
     private func commitText() {
         guard let tf = textField, let point = textInsertPoint, let image = canvasImage else { return }
         
+        snapshotForUndo(actionName: "Text")
+        
         let text = tf.stringValue
         guard !text.isEmpty else { return }
         
@@ -1158,7 +1214,8 @@ class CanvasNSView: NSView {
         }
     }
     
-    private func saveToDocument() {
+    private func saveToDocument(actionName: String? = nil) {
+        // actionName is no longer used to snapshot here; snapshots are taken BEFORE mutation.
         guard let image = canvasImage,
               let tiffData = image.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiffData),
@@ -1185,3 +1242,4 @@ extension NSColor {
                abs(c1.blueComponent - c2.blueComponent) < tolerance
     }
 }
+
