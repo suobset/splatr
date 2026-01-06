@@ -27,7 +27,8 @@ struct CanvasView: NSViewRepresentable {
         view.showResizeHandles = showResizeHandles
         
         // Load from document - document is source of truth
-        view.reloadFromDocument(data: document.canvasData, size: document.canvasSize)
+        // Notify navigator on initial load
+        view.reloadFromDocument(data: document.canvasData, size: document.canvasSize, notifyNavigator: true)
         return view
     }
     
@@ -40,10 +41,10 @@ struct CanvasView: NSViewRepresentable {
         nsView.showResizeHandles = showResizeHandles
         
         // Check if document changed externally (undo, redo, clear, flip, etc.)
-        // We use hash to detect changes without expensive comparisons
         if nsView.documentDataHash != document.canvasData.hashValue ||
            nsView.canvasSize != document.canvasSize {
-            nsView.reloadFromDocument(data: document.canvasData, size: document.canvasSize)
+            // Don't notify during update - just reload the image
+            nsView.reloadFromDocument(data: document.canvasData, size: document.canvasSize, notifyNavigator: false)
         }
         
         nsView.setNeedsDisplay(nsView.bounds)
@@ -173,7 +174,7 @@ class CanvasNSView: NSView {
     // MARK: - Document Loading
     
     /// Reload canvas from document data - this is the ONLY way to set canvas content
-    func reloadFromDocument(data: Data, size: CGSize) {
+    func reloadFromDocument(data: Data, size: CGSize, notifyNavigator: Bool = true) {
         documentDataHash = data.hashValue
         canvasSize = size
         
@@ -191,17 +192,19 @@ class CanvasNSView: NSView {
             image.draw(in: NSRect(origin: .zero, size: size))
             sizedImage.unlockFocus()
             canvasImage = sizedImage
+            
+            // Only notify navigator if not during a view update
+            if notifyNavigator {
+                DispatchQueue.main.async { [weak self] in
+                    self?.delegate?.onCanvasUpdate(sizedImage)
+                }
+            }
         } else {
             createBlankCanvas()
         }
         
         invalidateIntrinsicContentSize()
         setNeedsDisplay(bounds)
-        
-        // Notify navigator
-        if let img = canvasImage {
-            delegate?.onCanvasUpdate(img)
-        }
     }
     
     private func createBlankCanvas() {
