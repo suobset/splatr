@@ -102,6 +102,11 @@ class ToolPaletteState: ObservableObject {
     @Published var lineWidth: CGFloat = 1.0
     @Published var zoomLevel: CGFloat = 1.0
     
+    // Custom colors (persisted)
+    @Published var customColors: [Color] = [] {
+        didSet { saveCustomColors() }
+    }
+    
     // Airbrush settings
     @Published var airbrushIntensity: CGFloat = 0.3
     
@@ -111,6 +116,50 @@ class ToolPaletteState: ObservableObject {
     @Published var isBold: Bool = false
     @Published var isItalic: Bool = false
     @Published var isUnderlined: Bool = false
+    
+    private let customColorsKey = "BlotCustomColors"
+    private let maxCustomColors = 28 // 2 rows of 14
+    
+    private init() {
+        loadCustomColors()
+    }
+    
+    func addCustomColor(_ color: Color) {
+        // Don't add duplicates
+        if customColors.contains(where: { colorsAreEqual($0, color) }) {
+            return
+        }
+        
+        // Add to front, remove oldest if at max
+        customColors.insert(color, at: 0)
+        if customColors.count > maxCustomColors {
+            customColors.removeLast()
+        }
+    }
+    
+    private func colorsAreEqual(_ c1: Color, _ c2: Color) -> Bool {
+        let ns1 = NSColor(c1).usingColorSpace(.deviceRGB)
+        let ns2 = NSColor(c2).usingColorSpace(.deviceRGB)
+        guard let ns1, let ns2 else { return false }
+        return abs(ns1.redComponent - ns2.redComponent) < 0.01 &&
+               abs(ns1.greenComponent - ns2.greenComponent) < 0.01 &&
+               abs(ns1.blueComponent - ns2.blueComponent) < 0.01
+    }
+    
+    private func saveCustomColors() {
+        let colorData = customColors.compactMap { color -> [CGFloat]? in
+            guard let nsColor = NSColor(color).usingColorSpace(.deviceRGB) else { return nil }
+            return [nsColor.redComponent, nsColor.greenComponent, nsColor.blueComponent, nsColor.alphaComponent]
+        }
+        UserDefaults.standard.set(colorData, forKey: customColorsKey)
+    }
+    
+    private func loadCustomColors() {
+        guard let colorData = UserDefaults.standard.array(forKey: customColorsKey) as? [[CGFloat]] else { return }
+        customColors = colorData.map { components in
+            Color(nsColor: NSColor(red: components[0], green: components[1], blue: components[2], alpha: components[3]))
+        }
+    }
 }
 
 // MARK: - Palette Controller
@@ -121,16 +170,17 @@ class ToolPaletteController {
     private var colorPaletteWindow: NSPanel?
     private var navigatorWindow: NSPanel?
     private var textOptionsWindow: NSPanel?
+    private var customColorsWindow: NSPanel?
     
     private var toolPaletteVisible = true
     private var colorPaletteVisible = true
     private var navigatorVisible = true
     private var textOptionsVisible = false
+    private var customColorsVisible = false
     
     private var cancellables = Set<AnyCancellable>()
     
     private init() {
-        // Watch for text tool selection
         ToolPaletteState.shared.$currentTool
             .sink { [weak self] tool in
                 if tool == .text {
@@ -168,6 +218,9 @@ class ToolPaletteController {
         if textOptionsVisible || ToolPaletteState.shared.currentTool == .text {
             showTextOptions()
         }
+        if customColorsVisible {
+            showCustomColors()
+        }
     }
     
     func hideAllPalettes() {
@@ -175,10 +228,12 @@ class ToolPaletteController {
         colorPaletteVisible = false
         navigatorVisible = false
         textOptionsVisible = false
+        customColorsVisible = false
         toolPaletteWindow?.orderOut(nil)
         colorPaletteWindow?.orderOut(nil)
         navigatorWindow?.orderOut(nil)
         textOptionsWindow?.orderOut(nil)
+        customColorsWindow?.orderOut(nil)
     }
     
     func showPalettesIfNeeded() {
@@ -186,6 +241,7 @@ class ToolPaletteController {
         if colorPaletteVisible { colorPaletteWindow?.orderFront(nil) }
         if navigatorVisible { navigatorWindow?.orderFront(nil) }
         if textOptionsVisible { textOptionsWindow?.orderFront(nil) }
+        if customColorsVisible { customColorsWindow?.orderFront(nil) }
     }
     
     func hidePalettesTemporarily() {
@@ -193,6 +249,7 @@ class ToolPaletteController {
         colorPaletteWindow?.orderOut(nil)
         navigatorWindow?.orderOut(nil)
         textOptionsWindow?.orderOut(nil)
+        customColorsWindow?.orderOut(nil)
     }
     
     func showToolPalette() {
@@ -216,7 +273,7 @@ class ToolPaletteController {
             return
         }
         
-        let panel = createPanel(title: "Colors", rect: NSRect(x: 150, y: 80, width: 340, height: 80))
+        let panel = createPanel(title: "Colors", rect: NSRect(x: 150, y: 80, width: 370, height: 80))
         panel.contentView = NSHostingView(rootView: ColorPaletteView())
         panel.orderFront(nil)
         colorPaletteWindow = panel
@@ -246,7 +303,6 @@ class ToolPaletteController {
         
         let screenWidth = NSScreen.main?.frame.width ?? 1200
         let screenHeight = NSScreen.main?.frame.height ?? 800
-        // Position below navigator
         let panel = createPanel(title: "Text Options", rect: NSRect(x: screenWidth - 220, y: screenHeight - 430, width: 180, height: 160))
         panel.contentView = NSHostingView(rootView: TextOptionsView())
         panel.delegate = TextOptionsPanelDelegate.shared
@@ -266,6 +322,33 @@ class ToolPaletteController {
             showTextOptions()
         }
     }
+    
+    func showCustomColors() {
+        customColorsVisible = true
+        if let window = customColorsWindow {
+            window.orderFront(nil)
+            return
+        }
+        
+        let panel = createPanel(title: "Custom Colors", rect: NSRect(x: 150, y: 170, width: 260, height: 130))
+        panel.contentView = NSHostingView(rootView: CustomColorsPaletteView())
+        panel.delegate = CustomColorsPanelDelegate.shared
+        panel.orderFront(nil)
+        customColorsWindow = panel
+    }
+    
+    func hideCustomColors() {
+        customColorsVisible = false
+        customColorsWindow?.orderOut(nil)
+    }
+    
+    func toggleCustomColors() {
+        if customColorsVisible {
+            hideCustomColors()
+        } else {
+            showCustomColors()
+        }
+    }
 }
 
 // MARK: - Text Options Panel Delegate
@@ -277,11 +360,19 @@ class TextOptionsPanelDelegate: NSObject, NSWindowDelegate {
     }
 }
 
+// MARK: - Custom Colors Panel Delegate
+class CustomColorsPanelDelegate: NSObject, NSWindowDelegate {
+    static let shared = CustomColorsPanelDelegate()
+    
+    func windowWillClose(_ notification: Notification) {
+        ToolPaletteController.shared.hideCustomColors()
+    }
+}
+
 // MARK: - Text Options View
 struct TextOptionsView: View {
     @ObservedObject var state = ToolPaletteState.shared
     
-    // Common fonts available on macOS
     let availableFonts = [
         "Helvetica", "Helvetica Neue", "Arial", "Times New Roman",
         "Georgia", "Verdana", "Courier New", "Monaco",
@@ -293,27 +384,19 @@ struct TextOptionsView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Font picker
             VStack(alignment: .leading, spacing: 4) {
-                Text("Font")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Font").font(.caption).foregroundStyle(.secondary)
                 Picker("", selection: $state.fontName) {
                     ForEach(availableFonts, id: \.self) { font in
-                        Text(font)
-                            .font(.custom(font, size: 12))
-                            .tag(font)
+                        Text(font).font(.custom(font, size: 12)).tag(font)
                     }
                 }
                 .labelsHidden()
                 .frame(maxWidth: .infinity)
             }
             
-            // Size picker
             VStack(alignment: .leading, spacing: 4) {
-                Text("Size")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Size").font(.caption).foregroundStyle(.secondary)
                 HStack(spacing: 4) {
                     Picker("", selection: $state.fontSize) {
                         ForEach(fontSizes, id: \.self) { size in
@@ -323,42 +406,24 @@ struct TextOptionsView: View {
                     .labelsHidden()
                     .frame(width: 70)
                     
-                    Stepper("", value: $state.fontSize, in: 1...200, step: 1)
-                        .labelsHidden()
+                    Stepper("", value: $state.fontSize, in: 1...200, step: 1).labelsHidden()
                 }
             }
             
-            // Style toggles
             VStack(alignment: .leading, spacing: 4) {
-                Text("Style")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Style").font(.caption).foregroundStyle(.secondary)
                 HStack(spacing: 8) {
-                    Toggle(isOn: $state.isBold) {
-                        Image(systemName: "bold")
-                    }
-                    .toggleStyle(.button)
-                    .help("Bold (⌘B)")
-                    
-                    Toggle(isOn: $state.isItalic) {
-                        Image(systemName: "italic")
-                    }
-                    .toggleStyle(.button)
-                    .help("Italic (⌘I)")
-                    
-                    Toggle(isOn: $state.isUnderlined) {
-                        Image(systemName: "underline")
-                    }
-                    .toggleStyle(.button)
-                    .help("Underline (⌘U)")
+                    Toggle(isOn: $state.isBold) { Image(systemName: "bold") }
+                        .toggleStyle(.button).help("Bold (⌘B)")
+                    Toggle(isOn: $state.isItalic) { Image(systemName: "italic") }
+                        .toggleStyle(.button).help("Italic (⌘I)")
+                    Toggle(isOn: $state.isUnderlined) { Image(systemName: "underline") }
+                        .toggleStyle(.button).help("Underline (⌘U)")
                 }
             }
             
-            // Preview
             VStack(alignment: .leading, spacing: 4) {
-                Text("Preview")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Preview").font(.caption).foregroundStyle(.secondary)
                 Text("AaBbCc")
                     .font(.custom(state.fontName, size: min(state.fontSize, 24)))
                     .fontWeight(state.isBold ? .bold : .regular)
@@ -376,7 +441,7 @@ struct TextOptionsView: View {
     }
 }
 
-// MARK: - Tool Palette View (Faithful to XP layout: 2 columns, 8 rows)
+// MARK: - Tool Palette View
 struct ToolPaletteView: View {
     @ObservedObject var state = ToolPaletteState.shared
     
@@ -539,6 +604,7 @@ struct ToolButton: View {
 // MARK: - Color Palette View
 struct ColorPaletteView: View {
     @ObservedObject var state = ToolPaletteState.shared
+    @State private var showingColorPicker = false
     
     let topColors: [Color] = [
         Color(nsColor: NSColor(red: 0, green: 0, blue: 0, alpha: 1)),
@@ -576,6 +642,7 @@ struct ColorPaletteView: View {
     
     var body: some View {
         HStack(spacing: 10) {
+            // Foreground/Background color indicator
             ZStack(alignment: .topLeading) {
                 Rectangle().fill(state.backgroundColor).frame(width: 20, height: 20)
                     .border(Color.primary.opacity(0.4), width: 1).offset(x: 10, y: 10)
@@ -590,16 +657,196 @@ struct ColorPaletteView: View {
             }
             .help("Double-click to swap colors")
             
-            ColorPicker("", selection: $state.foregroundColor).labelsHidden()
             Divider().frame(height: 36)
             
+            // Default color grid
             VStack(spacing: 1) {
-                HStack(spacing: 1) { ForEach(0..<14, id: \.self) { i in ColorGridButton(color: topColors[i]) } }
-                HStack(spacing: 1) { ForEach(0..<14, id: \.self) { i in ColorGridButton(color: bottomColors[i]) } }
+                HStack(spacing: 1) {
+                    ForEach(0..<14, id: \.self) { i in
+                        ColorGridButton(color: topColors[i])
+                    }
+                }
+                HStack(spacing: 1) {
+                    ForEach(0..<14, id: \.self) { i in
+                        ColorGridButton(color: bottomColors[i])
+                    }
+                }
             }
+            
+            Divider().frame(height: 36)
+            
+            // Custom colors button
+            Button {
+                ToolPaletteController.shared.toggleCustomColors()
+            } label: {
+                VStack(spacing: 2) {
+                    Image(systemName: "paintpalette")
+                        .font(.system(size: 16))
+                    Text("Custom")
+                        .font(.caption2)
+                }
+                .frame(width: 44, height: 36)
+            }
+            .buttonStyle(.bordered)
+            .help("Show custom colors palette")
         }
         .padding(10)
         .frame(height: 60)
+    }
+}
+
+// MARK: - Color Picker with Custom Save
+struct ColorPickerWithCustomSave: View {
+    @Binding var selection: Color
+    @ObservedObject var state = ToolPaletteState.shared
+    @State private var previousColor: Color = .black
+    
+    var body: some View {
+        ColorPicker("", selection: $selection)
+            .labelsHidden()
+            .onChange(of: selection) { newColor in
+                // Add to custom colors when user picks a new color
+                // (only if it's different from the previous one)
+                if !colorsAreEqual(newColor, previousColor) {
+                    state.addCustomColor(newColor)
+                    previousColor = newColor
+                }
+            }
+            .onAppear {
+                previousColor = selection
+            }
+    }
+    
+    private func colorsAreEqual(_ c1: Color, _ c2: Color) -> Bool {
+        let ns1 = NSColor(c1).usingColorSpace(.deviceRGB)
+        let ns2 = NSColor(c2).usingColorSpace(.deviceRGB)
+        guard let ns1, let ns2 else { return false }
+        return abs(ns1.redComponent - ns2.redComponent) < 0.01 &&
+               abs(ns1.greenComponent - ns2.greenComponent) < 0.01 &&
+               abs(ns1.blueComponent - ns2.blueComponent) < 0.01
+    }
+}
+
+// MARK: - Custom Colors Palette View
+struct CustomColorsPaletteView: View {
+    @ObservedObject var state = ToolPaletteState.shared
+    
+    private let columns = 14
+    
+    var body: some View {
+        VStack(spacing: 10) {
+            // Color picker row
+            HStack(spacing: 8) {
+                Text("Pick Color:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                
+                ColorPickerWithCustomSave(selection: $state.foregroundColor)
+                
+                Spacer()
+                
+                Text("\(state.customColors.count)/28")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .monospacedDigit()
+            }
+            
+            Divider()
+            
+            // Custom colors grid
+            if state.customColors.isEmpty {
+                VStack(spacing: 4) {
+                    Text("No custom colors yet")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Use the color picker above to add colors")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(height: 32)
+            } else {
+                VStack(spacing: 1) {
+                    // First row
+                    HStack(spacing: 1) {
+                        ForEach(0..<columns, id: \.self) { i in
+                            if i < state.customColors.count {
+                                CustomColorGridButton(color: state.customColors[i], index: i)
+                            } else {
+                                EmptyColorSlot()
+                            }
+                        }
+                    }
+                    // Second row
+                    HStack(spacing: 1) {
+                        ForEach(0..<columns, id: \.self) { i in
+                            let index = i + columns
+                            if index < state.customColors.count {
+                                CustomColorGridButton(color: state.customColors[index], index: index)
+                            } else {
+                                EmptyColorSlot()
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Clear button
+            HStack {
+                Spacer()
+                Button("Clear All") {
+                    state.customColors.removeAll()
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .disabled(state.customColors.isEmpty)
+            }
+        }
+        .padding(10)
+        .frame(width: 260, height: 110)
+    }
+}
+
+struct CustomColorGridButton: View {
+    let color: Color
+    let index: Int
+    @ObservedObject var state = ToolPaletteState.shared
+    
+    var body: some View {
+        Rectangle()
+            .fill(color)
+            .frame(width: 14, height: 14)
+            .border(Color.primary.opacity(0.3), width: 0.5)
+            .onTapGesture {
+                state.foregroundColor = color
+            }
+            .simultaneousGesture(
+                TapGesture().modifiers(.control).onEnded {
+                    state.backgroundColor = color
+                }
+            )
+            .contextMenu {
+                Button("Set as Foreground") {
+                    state.foregroundColor = color
+                }
+                Button("Set as Background") {
+                    state.backgroundColor = color
+                }
+                Divider()
+                Button("Remove", role: .destructive) {
+                    state.customColors.remove(at: index)
+                }
+            }
+            .help("Left-click: foreground, Ctrl-click: background, Right-click: options")
+    }
+}
+
+struct EmptyColorSlot: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.secondary.opacity(0.1))
+            .frame(width: 14, height: 14)
+            .border(Color.primary.opacity(0.1), width: 0.5)
     }
 }
 
