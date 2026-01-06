@@ -41,7 +41,7 @@ struct CanvasView: NSViewRepresentable {
         
         // Reload image if document data changed (e.g., from undo)
         if nsView.currentDataHash != document.canvasData.hashValue {
-            nsView.loadImage(from: document.canvasData)
+            nsView.loadImage(from: document.canvasData, isUndo: true)
         }
         
         if nsView.canvasSize != document.canvasSize {
@@ -104,20 +104,27 @@ struct CanvasView: NSViewRepresentable {
             // Don't register if nothing changed
             guard oldData != newData else { return }
             
-            // Capture self weakly but data strongly
             undoManager.registerUndo(withTarget: self) { [oldData, newData, actionName] coordinator in
-                // When undoing, swap the data back and register redo
+                // When undoing, restore old data
                 coordinator.document.wrappedValue.canvasData = oldData
                 if let img = NSImage(data: oldData) {
                     coordinator.onCanvasUpdate(img)
                 }
                 
-                // Register redo (same logic, reversed)
+                // Register redo
                 coordinator.undoManager?.registerUndo(withTarget: coordinator) { coord in
                     coord.document.wrappedValue.canvasData = newData
                     if let img = NSImage(data: newData) {
                         coord.onCanvasUpdate(img)
                     }
+                    // Register undo again for the redo (so you can undo after redo)
+                    coord.undoManager?.registerUndo(withTarget: coord) { [oldData] c in
+                        c.document.wrappedValue.canvasData = oldData
+                        if let img = NSImage(data: oldData) {
+                            c.onCanvasUpdate(img)
+                        }
+                    }
+                    coord.undoManager?.setActionName(actionName)
                 }
                 coordinator.undoManager?.setActionName(actionName)
             }
@@ -197,7 +204,7 @@ class CanvasNSView: NSView {
     
     // MARK: - Image Loading
     
-    func loadImage(from data: Data) {
+    func loadImage(from data: Data, isUndo: Bool = false) {
         currentDataHash = data.hashValue
         
         if data.isEmpty {
@@ -210,7 +217,9 @@ class CanvasNSView: NSView {
             canvasSize = image.size
             invalidateIntrinsicContentSize()
             setNeedsDisplay(bounds)
-            notifyUpdate()
+            if !isUndo {
+                notifyUpdate()
+            }
         } else {
             createBlankCanvas()
         }
@@ -246,7 +255,7 @@ class CanvasNSView: NSView {
         
         canvasImage = newImage
         invalidateIntrinsicContentSize()
-        saveToDocument(actionName: "Resize Canvas")
+        saveToDocument(actionName: nil)  // No undo for resize
         setNeedsDisplay(bounds)
     }
     
@@ -1221,7 +1230,7 @@ class CanvasNSView: NSView {
             // Use undo-aware save
             delegate?.saveWithUndo(newData: pngData, image: image, actionName: name)
         } else {
-            // Direct save (no undo, e.g., during resize drag)
+            // Direct save (no undo, e.g., during resize)
             delegate?.canvasDidUpdate(pngData, image: image)
         }
     }
