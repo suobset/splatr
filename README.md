@@ -1,6 +1,6 @@
 # Splatr
 
-![Splatr App Icon](assets/laptop.png)
+![Splatr App Screenshot](assets/laptop.png)
 
 A bitmap image editor for macOS. Simple. Native. No bloat.
 
