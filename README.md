@@ -104,10 +104,6 @@ Then hit `⌘R` in Xcode.
 Because I wanted a simple paint program on my Mac and everything available was either:
 - A web app pretending to be native
 - An Electron app eating 800MB of RAM
-- A "free trial" for software that costs $20/month
-- Way too complicated for drawing a red circle on a screenshot
-
-So I built one. In a weekend. With vibes.
 
 ## Tech Stack
 
@@ -120,7 +116,6 @@ So I built one. In a weekend. With vibes.
 
 Splatr uses the following open source projects:
 
-- [WelcomeWindow](https://github.com/CodeEditApp/WelcomeWindow) by CodeEdit — MIT License
 - [create-dmg](https://github.com/create-dmg/create-dmg) - MIT License
 
 ## Contributing
