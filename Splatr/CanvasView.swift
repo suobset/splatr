@@ -117,7 +117,15 @@ class CanvasNSView: NSView {
     // Tool state
     var currentColor: NSColor = .black
     var brushSize: CGFloat = 4.0
-    var currentTool: Tool = .pencil
+    var currentTool: Tool = .pencil {
+        didSet {
+            // Remember the tool we came from when switching into the color picker
+            if currentTool == .colorPicker, oldValue != .colorPicker {
+                previousToolBeforePicker = oldValue
+            }
+        }
+    }
+    private var previousToolBeforePicker: Tool? = nil
     var showResizeHandles: Bool = true
     
     // Drawing state
@@ -979,6 +987,14 @@ class CanvasNSView: NSView {
               let color = bitmap.colorAt(x: px, y: py) else { return }
         
         delegate?.colorPicked(color)
+        
+        // Switch back to the tool we had before entering the picker
+        if let previous = previousToolBeforePicker {
+            previousToolBeforePicker = nil
+            DispatchQueue.main.async {
+                ToolPaletteState.shared.currentTool = previous
+            }
+        }
     }
     
     private func floodFill(at point: NSPoint) {
