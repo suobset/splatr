@@ -4,6 +4,8 @@
 
 A bitmap image editor for macOS. Simple. Native. No bloat.
 
+**Alpha Release: Splatr is in active development. Some features are still rough around the edges, and bugs are expected. Please report issues on GitHub — your feedback helps make it better.**
+
 ---
 
 ## What is this?
