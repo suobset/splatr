@@ -972,4 +972,5 @@ struct NavigatorView: View {
     ColorPaletteView()
     CustomColorsPaletteView()
     NavigatorView()
+    TextOptionsView()
 }

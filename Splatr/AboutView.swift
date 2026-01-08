@@ -32,8 +32,8 @@ struct AboutView: View {
             Spacer()
                 .frame(height: 4)
             
-            // Version (static here; could be wired to Bundle if preferred)
-            Text("Version 1.0.0")
+            // Version (read from Info.plist via Bundle extension)
+            Text("Version \(Bundle.main.appVersion)")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             
@@ -141,4 +141,3 @@ class AboutWindowController {
 #Preview {
     AboutView()
 }
-
