@@ -1511,7 +1511,6 @@ class CanvasNSView: NSView {
     
     /// Draws square handles at corners/sides and a rotate handle above the top center.
     private func drawSelectionHandles(_ rect: NSRect) {
-        let handleRadius: CGFloat = 4
         NSColor.controlAccentColor.setFill()
         
         for frame in handleFrames(for: rect) {
@@ -1815,25 +1814,38 @@ class CanvasNSView: NSView {
         
         textInsertPoint = point
         
-        let tf = NSTextField(frame: NSRect(x: point.x, y: point.y - 20, width: 200, height: 24))
+        // Build the font with style attributes
+        let state = ToolPaletteState.shared
+        let font = NSFont(name: state.fontName, size: state.fontSize) ?? NSFont.systemFont(ofSize: state.fontSize)
+        
+        // Apply bold/italic using font descriptor
+        var traits: NSFontDescriptor.SymbolicTraits = []
+        if state.isBold { traits.insert(.bold) }
+        if state.isItalic { traits.insert(.italic) }
+        
+        //let descriptor = font.fontDescriptor.withSymbolicTraits(traits)
+        //font = NSFont(descriptor: descriptor, size: state.fontSize) ?? font
+        
+        let tf = NSTextField(frame: NSRect(x: point.x, y: point.y - state.fontSize - 4, width: 300, height: state.fontSize + 8))
         tf.isBordered = true
         tf.backgroundColor = .white
-        tf.font = NSFont(name: ToolPaletteState.shared.fontName, size: ToolPaletteState.shared.fontSize)
+        tf.font = font
         tf.textColor = currentColor
         tf.target = self
         tf.action = #selector(textFieldEntered(_:))
+        tf.focusRingType = .none
         addSubview(tf)
         tf.becomeFirstResponder()
         textField = tf
     }
-    
+
     /// Called when the user presses Return in the text field; commits text to image.
     @objc private func textFieldEntered(_ sender: NSTextField) {
         commitText()
         sender.removeFromSuperview()
         textField = nil
     }
-    
+
     /// Renders the text field's contents into the canvas image at the insertion point.
     private func commitText() {
         guard let tf = textField, let point = textInsertPoint, let image = canvasImage else { return }
@@ -1845,10 +1857,28 @@ class CanvasNSView: NSView {
         newImage.lockFocus()
         image.draw(in: NSRect(origin: .zero, size: canvasSize))
         
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: tf.font ?? NSFont.systemFont(ofSize: 14),
+        // Build the font with style attributes
+        let state = ToolPaletteState.shared
+        let font = NSFont(name: state.fontName, size: state.fontSize) ?? NSFont.systemFont(ofSize: state.fontSize)
+        
+        // Apply bold/italic
+        var traits: NSFontDescriptor.SymbolicTraits = []
+        if state.isBold { traits.insert(.bold) }
+        if state.isItalic { traits.insert(.italic) }
+        
+        //let descriptor = font.fontDescriptor.withSymbolicTraits(traits)
+        //font = NSFont(descriptor: descriptor, size: state.fontSize) ?? font
+        
+        var attrs: [NSAttributedString.Key: Any] = [
+            .font: font,
             .foregroundColor: currentColor
         ]
+        
+        // Apply underline if enabled
+        if state.isUnderlined {
+            attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
+        }
+        
         let attrString = NSAttributedString(string: text, attributes: attrs)
         attrString.draw(at: point)
         

@@ -488,7 +488,7 @@ struct TextOptionsView: View {
             }
         }
         .padding(10)
-        .frame(width: 180, height: 180)
+        .frame(width: 180, height: 200)
     }
 }
 
