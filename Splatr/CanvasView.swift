@@ -1877,50 +1877,159 @@ class CanvasNSView: NSView {
         }
     }
     
-    /// Classic flood fill algorithm (stack-based) with a simple color tolerance.
+    /// Flood fill using direct pixel buffer manipulation for reliability and performance.
+    /// Uses scanline algorithm with tolerance-based edge detection.
     private func floodFill(at point: NSPoint) {
-        guard let image = canvasImage,
-              let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData) else { return }
+        guard let image = canvasImage else { return }
         
-        // Map start point to pixel space
-        let scaleX = CGFloat(bitmap.pixelsWide) / image.size.width
-        let scaleY = CGFloat(bitmap.pixelsHigh) / image.size.height
+        // Create a fresh bitmap at exact canvas size (1:1 pixel mapping)
+        let width = Int(canvasSize.width)
+        let height = Int(canvasSize.height)
         
-        let startX = Int((point.x * scaleX).rounded(.down))
-        let startY = Int(((canvasSize.height - point.y) * scaleY).rounded(.down))
-        let width = bitmap.pixelsWide
-        let height = bitmap.pixelsHigh
+        guard width > 0, height > 0 else { return }
         
-        guard startX >= 0 && startX < width && startY >= 0 && startY < height else { return }
-
-        guard let targetColor = bitmap.colorAt(x: startX, y: startY) else { return }
+        // Create a new bitmap representation with known format: 32-bit RGBA
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: width,
+            pixelsHigh: height,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: width * 4,
+            bitsPerPixel: 32
+        ) else { return }
         
-        if colorsMatch(targetColor, currentColor) { return }
+        // Draw current canvas into our controlled bitmap
+        NSGraphicsContext.saveGraphicsState()
+        if let ctx = NSGraphicsContext(bitmapImageRep: bitmap) {
+            NSGraphicsContext.current = ctx
+            // Fill with white first (in case image has transparency)
+            NSColor.white.setFill()
+            NSRect(origin: .zero, size: canvasSize).fill()
+            // Draw the image
+            image.draw(in: NSRect(origin: .zero, size: canvasSize),
+                       from: NSRect(origin: .zero, size: image.size),
+                       operation: .sourceOver,
+                       fraction: 1.0)
+        }
+        NSGraphicsContext.restoreGraphicsState()
         
-        var visited = [Bool](repeating: false, count: width * height)
-        var stack: [(Int, Int)] = [(startX, startY)]
+        // Get direct access to pixel buffer
+        guard let pixelData = bitmap.bitmapData else { return }
         
-        while !stack.isEmpty {
-            let (x, y) = stack.removeLast()
-            if x < 0 || x >= width || y < 0 || y >= height { continue }
-            let idx = y * width + x
-            if visited[idx] { continue }
-            
-            guard let pixelColor = bitmap.colorAt(x: x, y: y),
-                  colorsMatch(pixelColor, targetColor) else { continue }
-            
-            visited[idx] = true
-            bitmap.setColor(currentColor, atX: x, y: y)
-            
-            stack.append((x + 1, y))
-            stack.append((x - 1, y))
-            stack.append((x, y + 1))
-            stack.append((x, y - 1))
+        // Convert click point to pixel coordinates
+        // Note: NSView coordinates have origin at bottom-left, bitmap at top-left
+        let clickX = Int(point.x)
+        let clickY = height - 1 - Int(point.y)  // Flip Y coordinate
+        
+        guard clickX >= 0, clickX < width, clickY >= 0, clickY < height else { return }
+        
+        // Get target color at click point (RGBA)
+        let targetOffset = (clickY * width + clickX) * 4
+        let targetR = pixelData[targetOffset]
+        let targetG = pixelData[targetOffset + 1]
+        let targetB = pixelData[targetOffset + 2]
+        
+        // Get fill color components
+        let fillColor = currentColor.usingColorSpace(.deviceRGB) ?? currentColor
+        let fillR = UInt8(fillColor.redComponent * 255)
+        let fillG = UInt8(fillColor.greenComponent * 255)
+        let fillB = UInt8(fillColor.blueComponent * 255)
+        
+        // Don't fill if clicking on same color
+        let tolerance: Int = 32  // Allow some tolerance for anti-aliased edges
+        if colorMatchesRGB(targetR, targetG, targetB, fillR, fillG, fillB, tolerance: 1) {
+            return
         }
         
-        bitmap.size = canvasSize
+        // Scanline flood fill algorithm - more efficient than simple stack
+        var visited = [Bool](repeating: false, count: width * height)
+        var stack: [(Int, Int)] = [(clickX, clickY)]
         
+        // Helper to check if pixel matches target color within tolerance
+        func matchesTarget(_ x: Int, _ y: Int) -> Bool {
+            let offset = (y * width + x) * 4
+            let r = pixelData[offset]
+            let g = pixelData[offset + 1]
+            let b = pixelData[offset + 2]
+            return colorMatchesRGB(r, g, b, targetR, targetG, targetB, tolerance: tolerance)
+        }
+        
+        // Helper to set pixel color
+        func setPixel(_ x: Int, _ y: Int) {
+            let offset = (y * width + x) * 4
+            pixelData[offset] = fillR
+            pixelData[offset + 1] = fillG
+            pixelData[offset + 2] = fillB
+            pixelData[offset + 3] = 255  // Full opacity
+        }
+        
+        // Scanline fill
+        while !stack.isEmpty {
+            let (seedX, seedY) = stack.removeLast()
+            
+            // Skip if already visited or out of bounds
+            if seedY < 0 || seedY >= height { continue }
+            let idx = seedY * width + seedX
+            if visited[idx] { continue }
+            
+            // Find left edge of this scanline segment
+            var leftX = seedX
+            while leftX > 0 && matchesTarget(leftX - 1, seedY) && !visited[seedY * width + leftX - 1] {
+                leftX -= 1
+            }
+            
+            // Find right edge of this scanline segment
+            var rightX = seedX
+            while rightX < width - 1 && matchesTarget(rightX + 1, seedY) && !visited[seedY * width + rightX + 1] {
+                rightX += 1
+            }
+            
+            // Fill this scanline segment and mark as visited
+            var aboveAdded = false
+            var belowAdded = false
+            
+            for x in leftX...rightX {
+                let currentIdx = seedY * width + x
+                if visited[currentIdx] { continue }
+                if !matchesTarget(x, seedY) { continue }
+                
+                visited[currentIdx] = true
+                setPixel(x, seedY)
+                
+                // Check pixel above
+                if seedY > 0 {
+                    let aboveIdx = (seedY - 1) * width + x
+                    if !visited[aboveIdx] && matchesTarget(x, seedY - 1) {
+                        if !aboveAdded {
+                            stack.append((x, seedY - 1))
+                            aboveAdded = true
+                        }
+                    } else {
+                        aboveAdded = false
+                    }
+                }
+                
+                // Check pixel below
+                if seedY < height - 1 {
+                    let belowIdx = (seedY + 1) * width + x
+                    if !visited[belowIdx] && matchesTarget(x, seedY + 1) {
+                        if !belowAdded {
+                            stack.append((x, seedY + 1))
+                            belowAdded = true
+                        }
+                    } else {
+                        belowAdded = false
+                    }
+                }
+            }
+        }
+        
+        // Create new image from modified bitmap
+        bitmap.size = canvasSize
         let newImage = NSImage(size: canvasSize)
         newImage.addRepresentation(bitmap)
         canvasImage = newImage
@@ -1928,14 +2037,14 @@ class CanvasNSView: NSView {
         setNeedsDisplay(bounds)
     }
     
-    /// Compares two NSColor values with a tolerance in deviceRGB space.
-    private func colorsMatch(_ c1: NSColor, _ c2: NSColor) -> Bool {
-        guard let rgb1 = c1.usingColorSpace(.deviceRGB),
-              let rgb2 = c2.usingColorSpace(.deviceRGB) else { return false }
-        let tolerance: CGFloat = 0.1
-        return abs(rgb1.redComponent - rgb2.redComponent) < tolerance &&
-               abs(rgb1.greenComponent - rgb2.greenComponent) < tolerance &&
-               abs(rgb1.blueComponent - rgb2.blueComponent) < tolerance
+    /// Compare two RGB colors within a tolerance (0-255 scale).
+    private func colorMatchesRGB(_ r1: UInt8, _ g1: UInt8, _ b1: UInt8,
+                                  _ r2: UInt8, _ g2: UInt8, _ b2: UInt8,
+                                  tolerance: Int) -> Bool {
+        let dr = abs(Int(r1) - Int(r2))
+        let dg = abs(Int(g1) - Int(g2))
+        let db = abs(Int(b1) - Int(b2))
+        return dr <= tolerance && dg <= tolerance && db <= tolerance
     }
     
     // MARK: - Magnifier
