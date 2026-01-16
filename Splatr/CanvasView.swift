@@ -615,9 +615,34 @@ class CanvasNSView: NSView {
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
         let point = convert(event.locationInWindow, from: nil)
-        
-        // Track last mouse
         lastMousePoint = clamp(point)
+
+        // --- TEXT FIELD HANDLE/RECT LOGIC ---
+        if let tf = textField {
+            let tfRect = tf.frame
+            let handle = handleAt(lastMousePoint, in: tfRect)
+            if handle != .none || tfRect.contains(lastMousePoint) {
+                // Convert text field to floating selection
+                let image = renderTextFieldToImage(tf)
+                selectionImage = image
+                selectionRect = tfRect
+                selectionPath = nil
+                originalSelectionRect = nil
+                lastSelectionOrigin = tfRect.origin
+                isMovingSelection = false
+                tf.removeFromSuperview()
+                textField = nil
+                textInsertPoint = nil
+                // Now begin transform or move as usual
+                if handle != .none {
+                    beginTransform(handle: handle, at: lastMousePoint)
+                } else {
+                    startMovingSelection(at: lastMousePoint)
+                }
+                setNeedsDisplay(bounds)
+                return
+            }
+        }
         
         // Check for canvas resize handle drags first.
         if showResizeHandles {
@@ -1874,6 +1899,7 @@ class CanvasNSView: NSView {
         guard let tf = textField, let point = textInsertPoint, let image = canvasImage else { return }
         
         let text = tf.stringValue
+       
         guard !text.isEmpty else { return }
         
         let newImage = NSImage(size: canvasSize)
@@ -1977,6 +2003,20 @@ class CanvasNSView: NSView {
         } else {
             delegate?.saveToDocument(pngData, image: image)
         }
+    }
+    
+    /// Renders the contents of an NSTextField to an NSImage.
+    private func renderTextFieldToImage(_ tf: NSTextField) -> NSImage {
+        let size = tf.frame.size
+        let image = NSImage(size: size)
+        image.lockFocus()
+        // White background for text
+        NSColor.white.setFill()
+        NSRect(origin: .zero, size: size).fill()
+        // Draw attributed string
+        tf.attributedStringValue.draw(at: .zero)
+        image.unlockFocus()
+        return image
     }
 }
 
