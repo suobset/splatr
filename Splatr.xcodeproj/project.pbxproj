@@ -39,11 +39,22 @@
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		C502B4512F1AC6FB006D8C7F /* Exceptions for "Splatr" folder in "Copy Bundle Resources" phase from "Splatr" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = C51FDBB22F08CAD000BE2805 /* Resources */;
+			membershipExceptions = (
+				"View/Canvas/CanvasNSView+Shapes.swift",
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C51FDBB62F08CAD000BE2805 /* Splatr */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				C51FDBD62F08CAD100BE2805 /* Exceptions for "Splatr" folder in "Splatr" target */,
+				C502B4512F1AC6FB006D8C7F /* Exceptions for "Splatr" folder in "Copy Bundle Resources" phase from "Splatr" target */,
 			);
 			path = Splatr;
 			sourceTree = "<group>";
