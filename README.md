@@ -122,11 +122,13 @@ Splatr uses the following open source projects:
 
 ## Contributing
 
-PRs welcome. Keep it simple. If your feature needs a settings panel with 47 options, it probably doesn't belong here.
+Not currently open to contributions, in accordance to policies of the Swift Student Challenge. However, if you notice a bug, feel free to tell me (again, no code contributions/hints, please).
+
+This project will be open in the future for contributions and PRs.
 
 ## License
 
-MIT License. Do whatever you want with it.
+MIT License.
 
 See [LICENSE](LICENSE) for the full text.
 
