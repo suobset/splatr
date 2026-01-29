@@ -1,8 +1,22 @@
-# Splatr
+<p align="center">
+  <img src="https://splatr.skushagra.com/bloticon.png" alt="Splatr icon" width="128" height="128">
+</p>
+
+<h1 align="center">Splatr</h1>
+
+<p align="center">
+  A simple, native bitmap editor for macOS.
+  <br>
+  <strong>Simple. Native. No Bloat. Just pixels.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/suobset/splatr/raw/refs/heads/main/distribution/Splatr-Installer.dmg">Download (DMG)</a> ·
+  <a href="https://splatr.skushagra.com">Website</a> ·
+  <a href="https://github.com/suobset/splatr/issues">Report Bug</a>
+</p>
 
 ![Splatr App Screenshot](assets/laptop.png)
-
-A bitmap image editor for macOS. Simple. Native. No bloat.
 
 **Alpha Release: Splatr is in active development. Some features are still rough around the edges, and bugs are expected. Please report issues on GitHub — your feedback helps make it better.**
 
